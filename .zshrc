@@ -2,18 +2,29 @@
 # Environment Variables
 # -----------------------------
 
-# PostgreSQL (Ubuntu default – only if you actually use it)
-# export PGDATA=/var/lib/postgresql/15/main
-
-export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:/mnt/data/Flutter/flutter/bin:$HOME/bin:$PATH"
+export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:/mnt/data/Flutter/flutter/bin:$HOME/bin:/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:$PATH"
+export HOMEBREW_PREFIX="/home/linuxbrew/.linuxbrew"
+export HOMEBREW_CELLAR="/home/linuxbrew/.linuxbrew/Cellar"
+export HOMEBREW_REPOSITORY="/home/linuxbrew/.linuxbrew"
+export MANPATH="/home/linuxbrew/.linuxbrew/share/man${MANPATH+:$MANPATH}:"
+export INFOPATH="/home/linuxbrew/.linuxbrew/share/info:${INFOPATH:-}"
 
 # -----------------------------
-# NVM
+# NVM (lazy-loaded — loads only when you first call node/npm/nvm)
 # -----------------------------
 
 export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
-[ -s "$NVM_DIR/bash_completion" ] && source "$NVM_DIR/bash_completion"
+
+_load_nvm() {
+  [ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
+  [ -s "$NVM_DIR/bash_completion" ] && source "$NVM_DIR/bash_completion"
+}
+
+# Lazy stubs — real NVM loads on first use
+nvm() { unfunction nvm node npm npx; _load_nvm; nvm "$@"; }
+node() { unfunction nvm node npm npx; _load_nvm; node "$@"; }
+npm() { unfunction nvm node npm npx; _load_nvm; npm "$@"; }
+npx() { unfunction nvm node npm npx; _load_nvm; npx "$@"; }
 
 # -----------------------------
 # Zinit
@@ -22,46 +33,57 @@ export NVM_DIR="$HOME/.nvm"
 ZINIT_HOME="${XDG_DATA_HOME:-$HOME/.local/share}/zinit/zinit.git"
 
 if [ ! -d "$ZINIT_HOME" ]; then
-   mkdir -p "$(dirname "$ZINIT_HOME")"
-   git clone git@github.com:zdharma-continuum/zinit.git "$ZINIT_HOME"
+  mkdir -p "$(dirname "$ZINIT_HOME")"
+  git clone git@github.com:zdharma-continuum/zinit.git "$ZINIT_HOME"
 fi
 
 source "$ZINIT_HOME/zinit.zsh"
 
 # -----------------------------
-# Oh My Posh
+# Oh My Posh (cached init)
 # -----------------------------
+
+_OMP_CACHE="$HOME/.cache/omp_init.zsh"
+_OMP_CONFIG="$HOME/.dotfiles/.config/ohmyposh/config.omp.yaml"
+
 if command -v oh-my-posh >/dev/null 2>&1; then
-  eval "$(oh-my-posh init zsh --config "$HOME/.config/ohmyposh/zen.toml")"
+  if [[ ! -f "$_OMP_CACHE" || "$_OMP_CONFIG" -nt "$_OMP_CACHE" ]]; then
+    oh-my-posh init zsh --config "$_OMP_CONFIG" > "$_OMP_CACHE"
+  fi
+  source "$_OMP_CACHE"
 fi
 
 # -----------------------------
-# Plugins
+# Plugins (defer heavy ones)
 # -----------------------------
 
-zinit light zsh-users/zsh-syntax-highlighting
-zinit light zsh-users/zsh-completions
 zinit light zsh-users/zsh-autosuggestions
-zinit light Aloxaf/fzf-tab
+zinit light zsh-users/zsh-completions
+zinit ice wait lucid; zinit light zsh-users/zsh-syntax-highlighting
+zinit ice wait lucid; zinit light Aloxaf/fzf-tab
 
 # -----------------------------
-# OMZ snippets
+# OMZ snippets (deferred)
 # -----------------------------
 
-zinit snippet OMZL::git.zsh
-zinit snippet OMZP::git
+zinit ice wait lucid; zinit snippet OMZL::git.zsh
+zinit ice wait lucid; zinit snippet OMZP::git
 zinit snippet OMZP::sudo
-zinit snippet OMZP::aws
-zinit snippet OMZP::kubectl
-zinit snippet OMZP::kubectx
-zinit snippet OMZP::command-not-found
+zinit ice wait lucid; zinit snippet OMZP::aws
+zinit ice wait lucid; zinit snippet OMZP::kubectl
+zinit ice wait lucid; zinit snippet OMZP::kubectx
+zinit ice wait lucid; zinit snippet OMZP::command-not-found
 
 # -----------------------------
-# Completion
+# Completion (cached — only rebuilds once a day)
 # -----------------------------
 
 autoload -Uz compinit
-compinit
+if [[ -n "$HOME/.zcompdump"(#qN.mh+24) ]]; then
+  compinit
+else
+  compinit -C
+fi
 
 zinit cdreplay -q
 
@@ -91,13 +113,36 @@ zstyle ':fzf-tab:complete:__zoxide_z:*' fzf-preview 'ls --color=auto $realpath'
 alias ls='ls --color=auto'
 alias vim='nvim'
 alias c='clear'
+alias grep=rg
 
 # -----------------------------
-# Tool integrations
+# Tool integrations (cached)
 # -----------------------------
 
-command -v fzf >/dev/null && eval "$(fzf --zsh)"
-command -v zoxide >/dev/null && eval "$(zoxide init --cmd cd zsh)"
+# fzf
+_FZF_CACHE="$HOME/.cache/fzf_init.zsh"
+if command -v fzf >/dev/null 2>&1; then
+  if [[ ! -f "$_FZF_CACHE" ]]; then
+    fzf --zsh > "$_FZF_CACHE"
+  fi
+  source "$_FZF_CACHE"
+fi
+
+# zoxide
+_ZOXIDE_CACHE="$HOME/.cache/zoxide_init.zsh"
+if command -v zoxide >/dev/null 2>&1; then
+  if [[ ! -f "$_ZOXIDE_CACHE" ]]; then
+    zoxide init --cmd cd zsh > "$_ZOXIDE_CACHE"
+  fi
+  source "$_ZOXIDE_CACHE"
+fi
+
+# Angular completion (lazy — only loads when `ng` is first called)
+ng() {
+  unfunction ng
+  command -v ng >/dev/null && source <(command ng completion script)
+  ng "$@"
+}
 
 # -----------------------------
 # Key bindings
@@ -111,10 +156,12 @@ bindkey '^[[1;5D' backward-word
 bindkey '^[[1;5C' forward-word
 
 # -----------------------------
-# Angular completion
+# Bun
 # -----------------------------
 
-command -v ng >/dev/null && source <(ng completion script)
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:/home/koticharut/.opencode/bin:$PATH"
+[ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
 
 # -----------------------------
 # Extra configs
@@ -125,12 +172,3 @@ if [ -d ~/.zshrc.d ]; then
     [ -f "$rc" ] && source "$rc"
   done
 fi
-
-. "$HOME/.cargo/env" 
-export PATH=$PATH:/usr/local/go/bin
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
-alias psql-sourcenode='psql "postgresql://doadmin@db-sourcenode-do-user-30924051-0.i.db.ondigitalocean.com:25060/defaultdb?sslmode=require"'
-
-
