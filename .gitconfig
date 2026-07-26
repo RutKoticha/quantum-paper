@@ -3,3 +3,5 @@
 	email = 153355434+RutKoticha@users.noreply.github.com
 [init]
 	defaultBranch = master
+[core]
+	editor = nvim
