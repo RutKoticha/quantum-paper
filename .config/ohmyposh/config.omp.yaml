@@ -1,0 +1,37 @@
+$schema: https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/schema.json
+version: 2
+final_space: true
+
+blocks:
+  - type: prompt
+    alignment: left
+    segments:
+      - type: path
+        style: plain
+        foreground: "#9ccfd8"
+        properties:
+          style: folder
+        template: "{{ .Path }} "
+      
+      - type: git
+        style: plain
+        foreground: "#f6c177"
+        template: "{{ .HEAD }} "
+
+  - type: prompt
+    alignment: left
+    newline: true
+    segments:
+      - type: text
+        style: plain
+        foreground: "#c4a7e7"
+        foreground_templates:
+          - "{{ if gt .Code 0 }}#eb6f92{{ end }}"
+        template: "❯"
+
+transient_prompt:
+  background: transparent
+  foreground: "#c4a7e7"
+  foreground_templates:
+    - "{{ if gt .Code 0 }}#eb6f92{{ end }}"
+  template: "❯ "
